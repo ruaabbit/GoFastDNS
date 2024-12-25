@@ -1,0 +1,62 @@
+attempts: 2 # 最大错误重试次数，会保留最后一次成功的结果
+timeout: 1s # DNS 查询超时时间
+dns_servers:
+  - "udp://211.64.142.4"
+  - "udp://211.64.142.5"
+  - "udp://211.64.142.6"
+  - "udp://211.64.142.7"
+  - "udp://8.8.8.8"
+  - "tcp://211.64.142.4"
+  - "tcp://211.64.142.5"
+  - "tcp://211.64.142.6"
+  - "tcp://211.64.142.7"
+  - "tcp://8.8.8.8"
+  - "tls://dns.alidns.com"
+  - "tls://dns.pub"
+  - "tls://dns.google"
+  - "tls://dot.360.cn"
+
+domains:
+  # 教育类
+  - "www.edu.cn"
+  - "www.ouc.edu.cn"
+  - "www.tsinghua.edu.cn"
+  - "www.pku.edu.cn"
+
+  # 门户网站
+  - "baidu.com"
+  - "qq.com"
+  - "163.com"
+  - "sina.com.cn"
+  - "sohu.com"
+
+  # 电商平台
+  - "taobao.com"
+  - "jd.com"
+  - "tmall.com"
+  - "pinduoduo.com"
+  - "suning.com"
+
+  # 视频网站
+  - "bilibili.com"
+  - "youku.com"
+  - "iqiyi.com"
+  - "douyin.com"
+
+  # 社交媒体
+  - "weibo.com"
+  - "zhihu.com"
+  - "douban.com"
+  - "xiaohongshu.com"
+
+  # 新闻媒体
+  - "people.com.cn"
+  - "xinhuanet.com"
+  - "cctv.com"
+
+  # 工具网站
+  - "alipay.com"
+  - "12306.cn"
+  - "weather.com.cn"
+  - "map.baidu.com"
+  - "amap.com"
