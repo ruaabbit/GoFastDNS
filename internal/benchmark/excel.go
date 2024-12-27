@@ -2,96 +2,62 @@ package benchmark
 
 import (
 	"fmt"
-	"github.com/xuri/excelize/v2"
 	"log"
 	"time"
+
+	"github.com/xuri/excelize/v2"
 )
 
-func SaveResultsToExcel(servers []string, results []BenchmarkResult, formatResults []CSVResult, serverStats map[string]*ServerStats) string {
-	// 创建新的Excel文件
+func SaveResultsToExcel(servers []string, results []BenchmarkResult) string {
 	f := excelize.NewFile()
 	sheet := "DNS测试结果"
 	f.SetSheetName("Sheet1", sheet)
 
-	// 写入表头
-	headers := []string{"Domain"}
-	for _, result := range results {
-		headers = append(headers, result.Server)
-	}
-	for i, header := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheet, cell, header)
-	}
+	currentRow := 1
 
-	// 写入域名数据
-	for rowID, res := range formatResults {
-		row := []interface{}{res.Domain}
-		for _, server := range servers {
-			stats := res.ServerStats[server]
-			if stats.Success {
-				row = append(row, fmt.Sprintf("%.2f ms", stats.ResponseTime))
-			} else {
-				row = append(row, fmt.Sprintf("ERROR: %s", stats.Error))
+	for i, result := range results {
+		// 写入服务器汇总信息
+		f.SetCellValue(sheet, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("DNS服务器 #%d: %s", i+1, result.Server))
+		currentRow++
+
+		// 汇总信息表头
+		summaryHeaders := []string{"平均响应时间(ms)", "成功率(%)", "重试次数"}
+		for j, header := range summaryHeaders {
+			f.SetCellValue(sheet, fmt.Sprintf("%c%d", 'B'+j, currentRow), header)
+		}
+		currentRow++
+
+		// 写入汇总数据
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", currentRow), float64(result.AvgResponseTime.Milliseconds()))
+		f.SetCellValue(sheet, fmt.Sprintf("C%d", currentRow), result.SuccessRate*100)
+		f.SetCellValue(sheet, fmt.Sprintf("D%d", currentRow), result.TotalRetries)
+		currentRow += 2
+
+		// 域名详情表头
+		detailHeaders := []string{"域名", "响应时间(ms)", "重试次数", "错误信息"}
+		for j, header := range detailHeaders {
+			f.SetCellValue(sheet, fmt.Sprintf("%c%d", 'A'+j, currentRow), header)
+		}
+		currentRow++
+
+		// 写入域名测试详情
+		for _, domain := range result.DomainResults {
+			f.SetCellValue(sheet, fmt.Sprintf("A%d", currentRow), domain.Domain)
+			f.SetCellValue(sheet, fmt.Sprintf("B%d", currentRow), float64(domain.ResponseTime.Milliseconds()))
+			f.SetCellValue(sheet, fmt.Sprintf("C%d", currentRow), domain.RetryCount)
+			if domain.Error != nil {
+				f.SetCellValue(sheet, fmt.Sprintf("D%d", currentRow), domain.Error.Error())
 			}
-		}
-		// 写入一行数据
-		for colID, value := range row {
-			cell, _ := excelize.CoordinatesToCellName(colID+1, rowID+2)
-			f.SetCellValue(sheet, cell, value)
-		}
-	}
-
-	// 写入统计信息，从最后一行数据往下3行开始
-	startRow := len(formatResults) + 5
-	for serverIdx, server := range servers {
-		stats := serverStats[server]
-		colLetter, _ := excelize.CoordinatesToCellName(serverIdx+2, startRow)
-		titleCell, _ := excelize.CoordinatesToCellName(serverIdx+2, startRow-1)
-
-		// 写入服务器标题
-		f.SetCellValue(sheet, titleCell, fmt.Sprintf("%s 统计信息", server))
-
-		// 写入统计数据
-		f.SetCellValue(sheet, colLetter, fmt.Sprintf("平均: %.2f ms", stats.AvgTime))
-		f.SetCellValue(sheet, incrementRow(colLetter, 1), fmt.Sprintf("成功率: %.1f%%", stats.SuccessRate))
-		f.SetCellValue(sheet, incrementRow(colLetter, 2), fmt.Sprintf("最快: %.2f ms", stats.MinTime))
-		f.SetCellValue(sheet, incrementRow(colLetter, 3), fmt.Sprintf("最慢: %.2f ms", stats.MaxTime))
-		f.SetCellValue(sheet, incrementRow(colLetter, 4), fmt.Sprintf("总查询: %d", stats.TotalQueries))
-		f.SetCellValue(sheet, incrementRow(colLetter, 5), fmt.Sprintf("成功: %d", stats.SuccessQueries))
-		f.SetCellValue(sheet, incrementRow(colLetter, 6), fmt.Sprintf("失败: %d", stats.FailedQueries))
-	}
-
-	// 设置样式
-	headerStyle, _ := f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Bold: true},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"#CCE5FF"}, Pattern: 1},
-		Alignment: &excelize.Alignment{Horizontal: "center"},
-	})
-	f.SetRowStyle(sheet, 1, 1, headerStyle)
-
-	// 自动调整列宽
-	for i := 1; i <= len(headers); i++ {
-		col, _ := excelize.ColumnNumberToName(i)
-
-		// 获取该列所有单元格的内容，找出最长的内容
-		maxWidth := 10.0 // 设置最小宽度
-		for row := 1; row <= len(formatResults)+1; row++ {
-			cell, _ := excelize.CoordinatesToCellName(i, row)
-			if cellValue, _ := f.GetCellValue(sheet, cell); len(cellValue) > 0 {
-				// 根据内容长度计算所需宽度（假设每个字符约需要1.2个单位宽度）
-				width := float64(len(cellValue)) * 1.2
-				if width > maxWidth {
-					maxWidth = width
-				}
-			}
+			currentRow++
 		}
 
-		// 设置列宽
-		f.SetColWidth(sheet, col, col, maxWidth)
-
-		// 保持自动筛选功能
-		f.AutoFilter(sheet, fmt.Sprintf("%s1:%s%d", col, col, len(formatResults)+1), nil)
+		// 添加空行分隔不同服务器的数据
+		currentRow += 2
 	}
+
+	// 设置列宽
+	f.SetColWidth(sheet, "A", "A", 40)
+	f.SetColWidth(sheet, "B", "D", 15)
 
 	// 保存文件
 	filename := fmt.Sprintf("dns_benchmark_%s.xlsx", time.Now().Format("20060102_150405"))
@@ -101,11 +67,4 @@ func SaveResultsToExcel(servers []string, results []BenchmarkResult, formatResul
 	}
 
 	return filename
-}
-
-// 辅助函数：递增单元格行号
-func incrementRow(cell string, increment int) string {
-	col, row, _ := excelize.CellNameToCoordinates(cell)
-	newCell, _ := excelize.CoordinatesToCellName(col, row+increment)
-	return newCell
 }

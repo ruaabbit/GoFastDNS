@@ -2,6 +2,7 @@ package benchmark
 
 import (
 	"GoFastDNS/internal/dns"
+	"log"
 	"sync"
 	"time"
 )
@@ -57,6 +58,7 @@ func RunBenchmark(servers []string, domains []string, attempts int, timeout time
 				TotalRetries:    totalRetries,
 			})
 			mu.Unlock()
+			log.Printf("DNS服务器：%s，平均响应时间：%s，成功率：%.2f%%，总重试次数：%d\n", s, avgResponseTime, successRate*100, totalRetries)
 		}(server)
 	}
 	wg.Wait()
