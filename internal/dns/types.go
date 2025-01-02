@@ -19,6 +19,7 @@ type DNSResult struct {
 	ResponseTime    time.Duration
 	ResolutionError error
 	RetryCount      int
+	Answers         []string    // 新增：保存DNS应答记录
 }
 
 type Resolver interface {

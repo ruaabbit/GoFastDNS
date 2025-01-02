@@ -13,51 +13,72 @@ func SaveResultsToExcel(servers []string, results []BenchmarkResult) string {
 	sheet := "DNS测试结果"
 	f.SetSheetName("Sheet1", sheet)
 
-	currentRow := 1
+	// 计算每个服务器结果需要的列数
+	// 每个服务器占用4列（域名、响应时间、重试次数、错误信息）
+	columnsPerServer := 6
 
+	// 写入标题行
 	for i, result := range results {
-		// 写入服务器汇总信息
-		f.SetCellValue(sheet, fmt.Sprintf("A%d", currentRow), fmt.Sprintf("DNS服务器 #%d: %s", i+1, result.Server))
-		currentRow++
+		baseCol := i * columnsPerServer // 每个服务器的起始列
 
-		// 汇总信息表头
-		summaryHeaders := []string{"平均响应时间(ms)", "成功率(%)", "重试次数"}
-		for j, header := range summaryHeaders {
-			f.SetCellValue(sheet, fmt.Sprintf("%c%d", 'B'+j, currentRow), header)
-		}
-		currentRow++
+		// 写入服务器标题
+		serverCol := getColumnName(baseCol)
+		f.SetCellValue(sheet, fmt.Sprintf("%s1", serverCol),
+			fmt.Sprintf("DNS服务器 #%d: %s", i+1, result.Server))
+
+		// 写入汇总信息表头
+		f.SetCellValue(sheet, fmt.Sprintf("%s2", serverCol), "平均响应时间(ms)")
+		f.SetCellValue(sheet, fmt.Sprintf("%s2", getColumnName(baseCol+1)), "成功率(%)")
+		f.SetCellValue(sheet, fmt.Sprintf("%s2", getColumnName(baseCol+2)), "重试次数")
 
 		// 写入汇总数据
-		f.SetCellValue(sheet, fmt.Sprintf("B%d", currentRow), float64(result.AvgResponseTime.Milliseconds()))
-		f.SetCellValue(sheet, fmt.Sprintf("C%d", currentRow), result.SuccessRate*100)
-		f.SetCellValue(sheet, fmt.Sprintf("D%d", currentRow), result.TotalRetries)
-		currentRow += 2
+		f.SetCellValue(sheet, fmt.Sprintf("%s3", serverCol),
+			float64(result.AvgResponseTime.Milliseconds()))
+		f.SetCellValue(sheet, fmt.Sprintf("%s3", getColumnName(baseCol+1)),
+			result.SuccessRate*100)
+		f.SetCellValue(sheet, fmt.Sprintf("%s3", getColumnName(baseCol+2)),
+			result.TotalRetries)
 
-		// 域名详情表头
-		detailHeaders := []string{"域名", "响应时间(ms)", "重试次数", "错误信息"}
-		for j, header := range detailHeaders {
-			f.SetCellValue(sheet, fmt.Sprintf("%c%d", 'A'+j, currentRow), header)
-		}
-		currentRow++
+		// 写入详情表头
+		f.SetCellValue(sheet, fmt.Sprintf("%s5", serverCol), "域名")
+		f.SetCellValue(sheet, fmt.Sprintf("%s5", getColumnName(baseCol+1)), "响应时间(ms)")
+		f.SetCellValue(sheet, fmt.Sprintf("%s5", getColumnName(baseCol+2)), "重试次数")
+		f.SetCellValue(sheet, fmt.Sprintf("%s5", getColumnName(baseCol+3)), "错误信息")
+		f.SetCellValue(sheet, fmt.Sprintf("%s5", getColumnName(baseCol+4)), "解析结果")
+		f.SetCellValue(sheet, fmt.Sprintf("%s5", getColumnName(baseCol+5)), "平均延迟(ms)")
 
 		// 写入域名测试详情
-		for _, domain := range result.DomainResults {
-			f.SetCellValue(sheet, fmt.Sprintf("A%d", currentRow), domain.Domain)
-			f.SetCellValue(sheet, fmt.Sprintf("B%d", currentRow), float64(domain.ResponseTime.Milliseconds()))
-			f.SetCellValue(sheet, fmt.Sprintf("C%d", currentRow), domain.RetryCount)
+		for rowIdx, domain := range result.DomainResults {
+			f.SetCellValue(sheet, fmt.Sprintf("%s%d", serverCol, rowIdx+6),
+				domain.Domain)
+			f.SetCellValue(sheet, fmt.Sprintf("%s%d", getColumnName(baseCol+1), rowIdx+6),
+				float64(domain.ResponseTime.Milliseconds()))
+			f.SetCellValue(sheet, fmt.Sprintf("%s%d", getColumnName(baseCol+2), rowIdx+6),
+				domain.RetryCount)
 			if domain.Error != nil {
-				f.SetCellValue(sheet, fmt.Sprintf("D%d", currentRow), domain.Error.Error())
+				f.SetCellValue(sheet, fmt.Sprintf("%s%d", getColumnName(baseCol+3), rowIdx+6),
+					domain.Error.Error())
 			}
-			currentRow++
+			ips := make([]string, len(domain.DnsPingResults.PingResults))
+			for i, result := range domain.DnsPingResults.PingResults {
+				ips[i] = result.IP
+			}
+			f.SetCellValue(sheet, fmt.Sprintf("%s%d", getColumnName(baseCol+4), rowIdx+6),
+				ips)
+			f.SetCellValue(sheet, fmt.Sprintf("%s%d", getColumnName(baseCol+5), rowIdx+6),
+				float64(domain.DnsPingResults.AvgRTT.Milliseconds()))
 		}
 
-		// 添加空行分隔不同服务器的数据
-		currentRow += 2
+		// 设置列宽
+		for j := 0; j < columnsPerServer; j++ {
+			col := getColumnName(baseCol + j)
+			width := 15.0
+			if j == 0 { // 域名列
+				width = 40.0
+			}
+			f.SetColWidth(sheet, col, col, width)
+		}
 	}
-
-	// 设置列宽
-	f.SetColWidth(sheet, "A", "A", 40)
-	f.SetColWidth(sheet, "B", "D", 15)
 
 	// 保存文件
 	filename := fmt.Sprintf("dns_benchmark_%s.xlsx", time.Now().Format("20060102_150405"))
@@ -67,4 +88,14 @@ func SaveResultsToExcel(servers []string, results []BenchmarkResult) string {
 	}
 
 	return filename
+}
+
+// 将列索引转换为Excel列名（A, B, C, ..., Z, AA, AB, ...）
+func getColumnName(index int) string {
+	name := ""
+	for index >= 0 {
+		name = string(rune('A'+(index%26))) + name
+		index = index/26 - 1
+	}
+	return name
 }

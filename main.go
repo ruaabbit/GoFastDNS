@@ -22,5 +22,5 @@ func main() {
 
 	// 等待任意输入
 	log.Print("按 任意 键退出...")
-	fmt.Scanln()
+	_, _ = fmt.Scanln()
 }

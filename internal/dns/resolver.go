@@ -50,15 +50,26 @@ func (r *UDPResolver) Resolve(domain string, timeout time.Duration) DNSResult {
 	m := dns.Msg{}
 	m.SetQuestion(dns.Fqdn(domain), dns.TypeA)
 
-	_, duration, err := c.Exchange(&m, net.JoinHostPort(r.server, "53"))
-
-	return DNSResult{
+	resp, duration, err := c.Exchange(&m, net.JoinHostPort(r.server, "53"))
+	
+	result := DNSResult{
 		Server:          r.server,
 		Domain:          domain,
 		Protocol:        ProtocolUDP,
 		ResponseTime:    duration,
 		ResolutionError: err,
+		Answers:         make([]string, 0),
 	}
+
+	if err == nil && resp != nil {
+		for _, ans := range resp.Answer {
+			if a, ok := ans.(*dns.A); ok {
+				result.Answers = append(result.Answers, a.A.String())
+			}
+		}
+	}
+
+	return result
 }
 
 func (r *TCPResolver) Resolve(domain string, timeout time.Duration) DNSResult {
@@ -70,15 +81,26 @@ func (r *TCPResolver) Resolve(domain string, timeout time.Duration) DNSResult {
 	m := dns.Msg{}
 	m.SetQuestion(dns.Fqdn(domain), dns.TypeA)
 
-	_, duration, err := c.Exchange(&m, net.JoinHostPort(r.server, "53"))
-
-	return DNSResult{
+	resp, duration, err := c.Exchange(&m, net.JoinHostPort(r.server, "53"))
+	
+	result := DNSResult{
 		Server:          r.server,
 		Domain:          domain,
 		Protocol:        ProtocolTCP,
 		ResponseTime:    duration,
 		ResolutionError: err,
+		Answers:         make([]string, 0),
 	}
+
+	if err == nil && resp != nil {
+		for _, ans := range resp.Answer {
+			if a, ok := ans.(*dns.A); ok {
+				result.Answers = append(result.Answers, a.A.String())
+			}
+		}
+	}
+
+	return result
 }
 
 func (r *TLSResolver) Resolve(domain string, timeout time.Duration) DNSResult {
@@ -90,13 +112,24 @@ func (r *TLSResolver) Resolve(domain string, timeout time.Duration) DNSResult {
 	m := dns.Msg{}
 	m.SetQuestion(dns.Fqdn(domain), dns.TypeA)
 
-	_, duration, err := c.Exchange(&m, net.JoinHostPort(r.server, "853"))
-
-	return DNSResult{
+	resp, duration, err := c.Exchange(&m, net.JoinHostPort(r.server, "853"))
+	
+	result := DNSResult{
 		Server:          r.server,
 		Domain:          domain,
 		Protocol:        ProtocolTLS,
 		ResponseTime:    duration,
 		ResolutionError: err,
+		Answers:         make([]string, 0),
 	}
+
+	if err == nil && resp != nil {
+		for _, ans := range resp.Answer {
+			if a, ok := ans.(*dns.A); ok {
+				result.Answers = append(result.Answers, a.A.String())
+			}
+		}
+	}
+
+	return result
 }

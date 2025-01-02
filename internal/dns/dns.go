@@ -15,7 +15,7 @@ func ResolveDNS(address, domain string, attempts int, timeout time.Duration) DNS
 	}
 
 	var result DNSResult
-	for i := 0; i < attempts; i++ {
+	for i := 0; i <= attempts; i++ {
 		result = resolver.Resolve(domain, timeout)
 		result.RetryCount = i
 		if result.ResolutionError == nil {
